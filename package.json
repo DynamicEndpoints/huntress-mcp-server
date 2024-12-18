@@ -1,0 +1,43 @@
+{
+  "name": "huntress-mcp-server",
+  "version": "1.0.0",
+  "description": "A Model Context Protocol server for interacting with the Huntress API",
+  "main": "build/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "watch": "tsc -w",
+    "start": "node build/index.js",
+    "dev": "tsc && node build/index.js",
+    "clean": "rimraf build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "huntress",
+    "api",
+    "mcp",
+    "security",
+    "endpoint-protection"
+  ],
+  "author": "Huntress MCP Server Contributors",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.1.0",
+    "axios": "^1.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/huntress-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/huntress-mcp-server/issues"
+  }
+}
