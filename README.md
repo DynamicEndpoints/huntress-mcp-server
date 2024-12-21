@@ -2,6 +2,8 @@
 
 A Model Context Protocol (MCP) server that provides tools for interacting with the Huntress API. This server enables programmatic access to Huntress functionality including account management, organization management, agent management, incident reports, and more.
 
+<a href="https://glama.ai/mcp/servers/hry99k6xc2"><img width="380" height="200" src="https://glama.ai/mcp/servers/hry99k6xc2/badge" alt="Huntress-MCP-Server MCP server" /></a>
+
 ## Features
 
 - Account information retrieval
