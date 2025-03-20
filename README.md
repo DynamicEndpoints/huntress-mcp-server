@@ -1,4 +1,5 @@
 # Huntress API MCP Server
+[![smithery badge](https://smithery.ai/badge/huntress-mcp-server)](https://smithery.ai/server/huntress-mcp-server)
 
 A Model Context Protocol (MCP) server that provides tools for interacting with the Huntress API. This server enables programmatic access to Huntress functionality including account management, organization management, agent management, incident reports, and more.
 
@@ -17,6 +18,15 @@ A Model Context Protocol (MCP) server that provides tools for interacting with t
 
 ## Installation
 
+### Installing via Smithery
+
+To install Huntress API MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/huntress-mcp-server):
+
+```bash
+npx -y @smithery/cli install huntress-mcp-server --client claude
+```
+
+### Manual Installation
 1. Clone the repository
 2. Install dependencies:
 ```bash
