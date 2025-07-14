@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   CallToolRequestSchema,
   ErrorCode,
@@ -8,6 +9,7 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import axios, { AxiosInstance } from 'axios';
+import http from 'http';
 
 interface RequestParams {
   [key: string]: any;
@@ -379,9 +381,56 @@ class HuntressServer {
   }
 
   async run() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error('Huntress MCP server running on stdio');
+    // Check if we should run as HTTP server (for Smithery/container deployment)
+    const port = process.env.PORT || process.env.MCP_PORT;
+    
+    if (port) {
+      // HTTP/SSE transport for containerized deployment
+      const httpServer = http.createServer((req, res) => {
+        // Add CORS headers for browser-based clients
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200);
+          res.end();
+          return;
+        }
+        
+        // Handle health check
+        if (req.url === '/health') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+          return;
+        }
+        
+        // Default response for other routes
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      });
+      
+      try {
+        const transport = new SSEServerTransport('/sse', httpServer);
+        await this.server.connect(transport);
+        
+        httpServer.listen(port, () => {
+          console.error(`Huntress MCP server running on HTTP port ${port}`);
+          console.error(`SSE endpoint: http://localhost:${port}/sse`);
+          console.error(`Health check: http://localhost:${port}/health`);
+        });
+      } catch (error) {
+        console.error('Failed to start HTTP server, falling back to stdio:', error);
+        const transport = new StdioServerTransport();
+        await this.server.connect(transport);
+        console.error('Huntress MCP server running on stdio');
+      }
+    } else {
+      // Default stdio transport for local development
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      console.error('Huntress MCP server running on stdio');
+    }
   }
 }
 

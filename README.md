@@ -7,14 +7,16 @@ A Model Context Protocol (MCP) server that provides tools for interacting with t
 
 ## Features
 
+- **Latest MCP SDK 1.15.1**: Built with the latest Model Context Protocol features
+- **Deferred Initialization**: Optimized for Smithery deployment with lazy loading
+- **Container Support**: Ready for containerized deployment via Smithery
 - Account information retrieval
 - Organization management
 - Agent management and monitoring
-- Incident report access
-- Summary report generation
-- Billing report access
+- Incident management with status filtering
 - Built-in rate limiting (60 requests per minute)
-- Error handling and response formatting
+- Comprehensive error handling and response formatting
+- Session management compatible with Smithery discovery
 
 ## Installation
 
@@ -48,24 +50,16 @@ npm run build
 - `get_account_info`: Get information about the current account
 
 ### Organization Management
-- `list_organizations`: List organizations in the account
+- `list_organizations`: List organizations in the account (supports pagination)
 - `get_organization`: Get details of a specific organization
 
 ### Agent Management
-- `list_agents`: List agents in the account
+- `list_agents`: List agents in the account (supports pagination)
 - `get_agent`: Get details of a specific agent
 
-### Incident Reports
-- `list_incident_reports`: List incident reports
-- `get_incident_report`: Get details of a specific incident report
-
-### Summary Reports
-- `list_summary_reports`: List summary reports
-- `get_summary_report`: Get details of a specific summary report
-
-### Billing Reports
-- `list_billing_reports`: List billing reports
-- `get_billing_report`: Get details of a specific billing report
+### Incident Management
+- `list_incidents`: List incidents in the account (supports pagination and status filtering)
+- `get_incident`: Get details of a specific incident
 
 ## Configuration
 
@@ -101,6 +95,31 @@ The server implements Huntress API's rate limiting of 60 requests per minute on 
 - No more than 60 requests can be made within any 60-second period
 - The window slides, so if request 1 is made at T0 and request 60 at T30, request 61 must wait until T60
 
+## Smithery Deployment
+
+This server is optimized for deployment on [Smithery](https://smithery.ai), featuring:
+
+- **Container Configuration**: Uses `smithery.yaml` with container-based deployment
+- **Environment Variable Mapping**: Automatic mapping of configuration to environment variables
+- **Deferred Initialization**: Credentials are only loaded when tools are actually invoked
+- **Session Management**: Compatible with Smithery's tool discovery process
+
+The `smithery.yaml` configuration includes:
+- `configSchema`: Defines required API credentials
+- `configToEnv`: Maps configuration parameters to environment variables
+- `startCommand`: Container-based execution
+
+## Latest MCP Features (v1.15.1)
+
+This server leverages the latest MCP SDK features including:
+
+- **Enhanced Error Handling**: Improved error validation and reporting
+- **CORS Support**: For browser-based MCP clients
+- **Session Lifecycle Hooks**: Better session management
+- **OAuth Improvements**: Enhanced authentication methods
+- **Async Callback Support**: For session initialization and cleanup
+- **Custom Headers**: Support for custom authentication headers
+
 ## Error Handling
 
 The server handles various error scenarios:
@@ -108,6 +127,8 @@ The server handles various error scenarios:
 - Rate limit exceeded
 - Invalid request parameters
 - API response errors
+- Session management errors
+- Tool discovery failures
 
 ## License
 
