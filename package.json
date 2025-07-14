@@ -22,11 +22,11 @@
   "author": "Huntress MCP Server Contributors",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.1.0",
-    "axios": "^1.6.5"
+    "@modelcontextprotocol/sdk": "^1.15.1",
+    "axios": "^1.10.0"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
+    "@types/node": "^20.19.7",
     "rimraf": "^5.0.5",
     "typescript": "^5.3.3"
   },

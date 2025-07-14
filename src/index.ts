@@ -9,29 +9,22 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import axios, { AxiosInstance } from 'axios';
 
-// Environment variables for authentication
-const API_KEY = process.env.HUNTRESS_API_KEY;
-const API_SECRET = process.env.HUNTRESS_API_SECRET;
-
-if (!API_KEY || !API_SECRET) {
-  throw new Error('HUNTRESS_API_KEY and HUNTRESS_API_SECRET environment variables are required');
-}
-
 interface RequestParams {
   [key: string]: any;
 }
 
 class HuntressServer {
   private server: Server;
-  private axiosInstance: AxiosInstance;
+  private axiosInstance: AxiosInstance | null = null;
   private lastRequestTime: number = 0;
   private requestCount: number = 0;
+  private isInitialized: boolean = false;
 
   constructor() {
     this.server = new Server(
       {
         name: 'huntress-server',
-        version: '0.1.0',
+        version: '1.0.0',
       },
       {
         capabilities: {
@@ -40,14 +33,7 @@ class HuntressServer {
       }
     );
 
-    // Initialize axios instance with base configuration
-    this.axiosInstance = axios.create({
-      baseURL: 'https://api.huntress.io/v1',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64')}`,
-      },
-    });
-
+    // Setup tool handlers
     this.setupToolHandlers();
     
     // Error handling
@@ -58,14 +44,41 @@ class HuntressServer {
     });
   }
 
+  // Quick check for credentials existence (for Smithery discovery)
+  private hasCredentials(): boolean {
+    return !!(process.env.HUNTRESS_API_KEY && process.env.HUNTRESS_API_SECRET);
+  }
+
+  // Initialize the server (called when a tool is actually used)
+  private async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+
+    if (!this.hasCredentials()) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        'HUNTRESS_API_KEY and HUNTRESS_API_SECRET environment variables are required'
+      );
+    }
+
+    // Initialize axios instance with base configuration
+    this.axiosInstance = axios.create({
+      baseURL: 'https://api.huntress.io/v1',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${process.env.HUNTRESS_API_KEY}:${process.env.HUNTRESS_API_SECRET}`).toString('base64')}`,
+      },
+    });
+
+    this.isInitialized = true;
+  }
+
   private async checkRateLimit() {
     const now = Date.now();
     if (now - this.lastRequestTime >= 60000) {
-      // Reset if a minute has passed
       this.requestCount = 0;
       this.lastRequestTime = now;
     } else if (this.requestCount >= 60) {
-      // Wait until a minute has passed since first request
       const waitTime = 60000 - (now - this.lastRequestTime);
       await new Promise(resolve => setTimeout(resolve, waitTime));
       this.requestCount = 0;
@@ -75,6 +88,13 @@ class HuntressServer {
   }
 
   private async makeRequest(endpoint: string, params: RequestParams = {}) {
+    if (!this.axiosInstance) {
+      throw new McpError(
+        ErrorCode.InternalError,
+        'Server not properly initialized'
+      );
+    }
+
     await this.checkRateLimit();
     try {
       const response = await this.axiosInstance.get(endpoint, { params });
@@ -152,15 +172,6 @@ class HuntressServer {
                 minimum: 1,
                 maximum: 500,
               },
-              organization_id: {
-                type: 'integer',
-                description: 'Filter by organization ID',
-              },
-              platform: {
-                type: 'string',
-                description: 'Filter by platform (darwin or windows)',
-                enum: ['darwin', 'windows'],
-              },
             },
           },
         },
@@ -179,99 +190,8 @@ class HuntressServer {
           },
         },
         {
-          name: 'list_incident_reports',
-          description: 'List incident reports',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              page: {
-                type: 'integer',
-                description: 'Page number (starts at 1)',
-                minimum: 1,
-              },
-              limit: {
-                type: 'integer',
-                description: 'Number of results per page (1-500)',
-                minimum: 1,
-                maximum: 500,
-              },
-              organization_id: {
-                type: 'integer',
-                description: 'Filter by organization ID',
-              },
-              status: {
-                type: 'string',
-                description: 'Filter by status',
-                enum: ['sent', 'closed', 'dismissed'],
-              },
-              severity: {
-                type: 'string',
-                description: 'Filter by severity',
-                enum: ['low', 'high', 'critical'],
-              },
-            },
-          },
-        },
-        {
-          name: 'get_incident_report',
-          description: 'Get details of a specific incident report',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              report_id: {
-                type: 'integer',
-                description: 'Incident Report ID',
-              },
-            },
-            required: ['report_id'],
-          },
-        },
-        {
-          name: 'list_summary_reports',
-          description: 'List summary reports',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              page: {
-                type: 'integer',
-                description: 'Page number (starts at 1)',
-                minimum: 1,
-              },
-              limit: {
-                type: 'integer',
-                description: 'Number of results per page (1-500)',
-                minimum: 1,
-                maximum: 500,
-              },
-              organization_id: {
-                type: 'integer',
-                description: 'Filter by organization ID',
-              },
-              type: {
-                type: 'string',
-                description: 'Filter by report type',
-                enum: ['monthly_summary', 'quarterly_summary', 'yearly_summary'],
-              },
-            },
-          },
-        },
-        {
-          name: 'get_summary_report',
-          description: 'Get details of a specific summary report',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              report_id: {
-                type: 'integer',
-                description: 'Summary Report ID',
-              },
-            },
-            required: ['report_id'],
-          },
-        },
-        {
-          name: 'list_billing_reports',
-          description: 'List billing reports',
+          name: 'list_incidents',
+          description: 'List incidents in the account',
           inputSchema: {
             type: 'object',
             properties: {
@@ -288,93 +208,157 @@ class HuntressServer {
               },
               status: {
                 type: 'string',
-                description: 'Filter by status',
-                enum: ['open', 'paid', 'failed', 'partial_refund', 'full_refund'],
+                description: 'Filter by incident status',
+                enum: ['active', 'resolved', 'ignored'],
               },
             },
           },
         },
         {
-          name: 'get_billing_report',
-          description: 'Get details of a specific billing report',
+          name: 'get_incident',
+          description: 'Get details of a specific incident',
           inputSchema: {
             type: 'object',
             properties: {
-              report_id: {
+              incident_id: {
                 type: 'integer',
-                description: 'Billing Report ID',
+                description: 'Incident ID',
               },
             },
-            required: ['report_id'],
+            required: ['incident_id'],
           },
         },
       ],
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args = {} } = request.params;
+      const { name, arguments: args } = request.params;
+
+      // Initialize server when a tool is actually called
+      await this.initialize();
 
       try {
-        let response;
         switch (name) {
-          case 'get_account_info':
-            response = await this.makeRequest('/account');
-            break;
+          case 'get_account_info': {
+            const data = await this.makeRequest('/account');
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
-          case 'list_organizations':
-            response = await this.makeRequest('/organizations', args);
-            break;
+          case 'list_organizations': {
+            const params = {
+              page: (args as any)?.page || 1,
+              limit: Math.min((args as any)?.limit || 50, 500),
+            };
+            const data = await this.makeRequest('/organizations', params);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
-          case 'get_organization':
-            if (!args.organization_id) {
-              throw new McpError(ErrorCode.InvalidParams, 'organization_id is required');
+          case 'get_organization': {
+            const orgId = (args as any)?.organization_id;
+            if (!orgId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                'organization_id is required'
+              );
             }
-            response = await this.makeRequest(`/organizations/${args.organization_id}`);
-            break;
+            const data = await this.makeRequest(`/organizations/${orgId}`);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
-          case 'list_agents':
-            response = await this.makeRequest('/agents', args);
-            break;
+          case 'list_agents': {
+            const params = {
+              page: (args as any)?.page || 1,
+              limit: Math.min((args as any)?.limit || 50, 500),
+            };
+            const data = await this.makeRequest('/agents', params);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
-          case 'get_agent':
-            if (!args.agent_id) {
-              throw new McpError(ErrorCode.InvalidParams, 'agent_id is required');
+          case 'get_agent': {
+            const agentId = (args as any)?.agent_id;
+            if (!agentId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                'agent_id is required'
+              );
             }
-            response = await this.makeRequest(`/agents/${args.agent_id}`);
-            break;
+            const data = await this.makeRequest(`/agents/${agentId}`);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
-          case 'list_incident_reports':
-            response = await this.makeRequest('/incident_reports', args);
-            break;
-
-          case 'get_incident_report':
-            if (!args.report_id) {
-              throw new McpError(ErrorCode.InvalidParams, 'report_id is required');
+          case 'list_incidents': {
+            const params: RequestParams = {
+              page: (args as any)?.page || 1,
+              limit: Math.min((args as any)?.limit || 50, 500),
+            };
+            const status = (args as any)?.status;
+            if (status) {
+              params.status = status;
             }
-            response = await this.makeRequest(`/incident_reports/${args.report_id}`);
-            break;
+            const data = await this.makeRequest('/incidents', params);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
-          case 'list_summary_reports':
-            response = await this.makeRequest('/reports', args);
-            break;
-
-          case 'get_summary_report':
-            if (!args.report_id) {
-              throw new McpError(ErrorCode.InvalidParams, 'report_id is required');
+          case 'get_incident': {
+            const incidentId = (args as any)?.incident_id;
+            if (!incidentId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                'incident_id is required'
+              );
             }
-            response = await this.makeRequest(`/reports/${args.report_id}`);
-            break;
-
-          case 'list_billing_reports':
-            response = await this.makeRequest('/billing_reports', args);
-            break;
-
-          case 'get_billing_report':
-            if (!args.report_id) {
-              throw new McpError(ErrorCode.InvalidParams, 'report_id is required');
-            }
-            response = await this.makeRequest(`/billing_reports/${args.report_id}`);
-            break;
+            const data = await this.makeRequest(`/incidents/${incidentId}`);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2),
+                },
+              ],
+            };
+          }
 
           default:
             throw new McpError(
@@ -382,22 +366,13 @@ class HuntressServer {
               `Unknown tool: ${name}`
             );
         }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(response, null, 2),
-            },
-          ],
-        };
       } catch (error) {
         if (error instanceof McpError) {
           throw error;
         }
         throw new McpError(
           ErrorCode.InternalError,
-          `Error executing ${name}: ${error}`
+          `Tool execution failed: ${error}`
         );
       }
     });

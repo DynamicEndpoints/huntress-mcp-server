@@ -1,7 +1,7 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
 
 startCommand:
-  type: stdio
+  type: container
   configSchema:
     # JSON Schema defining the configuration options for the MCP.
     type: object
@@ -15,7 +15,7 @@ startCommand:
       huntressApiSecret:
         type: string
         description: The API secret for the Huntress MCP server.
-  commandFunction:
-    # A function that produces the CLI command to start the MCP on stdio.
-    |-
-    (config) => ({command: 'node', args: ['build/index.js'], env: {HUNTRESS_API_KEY: config.huntressApiKey, HUNTRESS_API_SECRET: config.huntressApiSecret}})
+  configToEnv:
+    # Map configuration parameters to environment variables
+    huntressApiKey: HUNTRESS_API_KEY
+    huntressApiSecret: HUNTRESS_API_SECRET
