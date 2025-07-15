@@ -9,8 +9,7 @@
     "watch": "tsc -w",
     "start": "node build/index.js",
     "dev": "tsc && node build/index.js",
-    "clean": "rimraf build",
-    "prepare": "npm run build"
+    "clean": "rimraf build"
   },
   "keywords": [
     "huntress",
