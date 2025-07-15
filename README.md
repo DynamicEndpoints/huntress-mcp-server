@@ -103,25 +103,25 @@ The server implements Huntress API's rate limiting of 60 requests per minute on 
 
 ## Smithery Deployment
 
-This server is optimized for deployment on [Smithery](https://smithery.ai) using the **TypeScript runtime**, featuring:
+This server is optimized for deployment on [Smithery](https://smithery.ai) using **container deployment**, featuring:
 
-- **TypeScript Runtime**: Uses Smithery's built-in TypeScript support
-- **HTTP Endpoint**: Implements `/mcp` endpoint for MCP communication
-- **Query Parameter Configuration**: Accepts configuration via URL parameters
+- **Container Runtime**: Uses Docker container with HTTP streaming (SSE)
+- **HTTP Endpoint**: Implements `/` endpoint for MCP communication
+- **Environment Variable Configuration**: Maps configuration to environment variables
 - **Deferred Initialization**: Credentials are only loaded when tools are actually invoked
 - **Tool Discovery**: Tools can be listed without requiring authentication
 
 ### Smithery Configuration
 The `smithery.yaml` uses:
-- `runtime: "typescript"` for TypeScript deployment
-- **HTTP endpoint**: `/mcp` with GET, POST, DELETE support
-- **Query parameter parsing**: Handles `huntressApiKey` and `huntressApiSecret`
+- `runtime: "container"` for Docker container deployment
+- **HTTP streaming**: Server-Sent Events (SSE) for real-time communication
+- **Environment variable mapping**: Maps configuration to `HUNTRESS_API_KEY` and `HUNTRESS_API_SECRET`
 - **Lazy loading**: Tools discoverable without authentication
 
 ### Deployment Steps
 1. **Push to GitHub**: Ensure your code is in a GitHub repository
 2. **Connect to Smithery**: Visit https://smithery.ai and connect your GitHub
-3. **Deploy**: Use Smithery's TypeScript deployment for automatic building
+3. **Deploy**: Use Smithery's container deployment for automatic building
 
 ## Latest MCP Features (v1.15.1)
 
