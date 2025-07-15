@@ -414,10 +414,10 @@ class HuntressServer {
     // Parse config from environment for Smithery compatibility
     this.config = this.parseConfig({});
     
-    const port = process.env.PORT;
-    const isContainer = process.env.NODE_ENV === 'production' || port;
+    const port = process.env.PORT || 3000;
+    const isContainer = process.env.NODE_ENV === 'production' || process.env.PORT;
     
-    if (isContainer && port) {
+    if (isContainer) {
       // HTTP server for container deployment with SSE support
       console.error(`Starting Huntress MCP server in HTTP mode on port ${port}`);
       
@@ -435,7 +435,7 @@ class HuntressServer {
         }
         
         // Health check endpoint
-        if (req.url === '/health' || req.url === '/') {
+        if (req.url === '/health') {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
             status: 'ok', 
@@ -447,11 +447,11 @@ class HuntressServer {
           return;
         }
         
-        // MCP endpoint for HTTP POST requests (Smithery expects this at root)
-        if (req.url === '/' || req.url === '/mcp') {
+        // MCP endpoint - Smithery expects POST to root for tool discovery
+        if (req.url === '/') {
           if (req.method === 'POST') {
             // Create SSE transport for this specific response
-            const transport = new SSEServerTransport('/mcp', res);
+            const transport = new SSEServerTransport('/', res);
             this.server.connect(transport).catch(error => {
               console.error('SSE transport error:', error);
               res.end();
@@ -463,7 +463,7 @@ class HuntressServer {
           return;
         }
         
-        // SSE endpoint for streaming (optional)
+        // SSE endpoint for streaming
         if (req.url === '/sse') {
           // Set SSE headers
           res.writeHead(200, {
@@ -489,6 +489,7 @@ class HuntressServer {
       
       httpServer.listen(port, () => {
         console.error(`Huntress MCP server running on HTTP port ${port}`);
+        console.error(`MCP endpoint: http://localhost:${port}/`);
         console.error(`SSE endpoint: http://localhost:${port}/sse`);
         console.error(`Health check: http://localhost:${port}/health`);
       });
