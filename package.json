@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A Model Context Protocol server for interacting with the Huntress API",
   "main": "build/index.js",
+  "module": "./src/index.ts",
   "type": "module",
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
