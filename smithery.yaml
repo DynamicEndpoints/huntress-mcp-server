@@ -1,9 +1,12 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
 
+runtime: "container"
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
 startCommand:
-  type: container
+  type: "http"
   configSchema:
-    # JSON Schema defining the configuration options for the MCP.
     type: object
     required:
       - huntressApiKey
@@ -12,22 +15,9 @@ startCommand:
       huntressApiKey:
         type: string
         description: The API key for the Huntress MCP server.
-        title: Huntress API Key
       huntressApiSecret:
         type: string
         description: The API secret for the Huntress MCP server.
-        title: Huntress API Secret
-    additionalProperties: false
-  configToEnv:
-    # Map configuration parameters to environment variables
-    huntressApiKey: HUNTRESS_API_KEY
-    huntressApiSecret: HUNTRESS_API_SECRET
-  containerConfig:
-    # Container-specific configuration
-    port: 3000
-    healthCheck:
-      path: /health
-      intervalSeconds: 30
-      timeoutSeconds: 5
-    environment:
-      NODE_ENV: production
+  exampleConfig:
+    huntressApiKey: "your_api_key_here"
+    huntressApiSecret: "your_api_secret_here"

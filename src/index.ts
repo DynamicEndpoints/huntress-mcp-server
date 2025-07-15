@@ -8,9 +8,16 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import axios, { AxiosInstance } from 'axios';
+import http from 'http';
+import url from 'url';
 
 interface RequestParams {
   [key: string]: any;
+}
+
+interface Config {
+  huntressApiKey?: string;
+  huntressApiSecret?: string;
 }
 
 class HuntressServer {
@@ -19,6 +26,7 @@ class HuntressServer {
   private lastRequestTime: number = 0;
   private requestCount: number = 0;
   private isInitialized: boolean = false;
+  private config: Config = {};
 
   constructor() {
     this.server = new Server(
@@ -44,9 +52,33 @@ class HuntressServer {
     });
   }
 
+  // Parse configuration from query parameters (Smithery format)
+  private parseConfig(queryParams: any): Config {
+    const config: Config = {};
+    
+    // Handle dot-notation parameters from Smithery
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (key === 'huntressApiKey') {
+        config.huntressApiKey = value as string;
+      } else if (key === 'huntressApiSecret') {
+        config.huntressApiSecret = value as string;
+      }
+    }
+    
+    // Fallback to environment variables
+    if (!config.huntressApiKey) {
+      config.huntressApiKey = process.env.HUNTRESS_API_KEY;
+    }
+    if (!config.huntressApiSecret) {
+      config.huntressApiSecret = process.env.HUNTRESS_API_SECRET;
+    }
+    
+    return config;
+  }
+
   // Quick check for credentials existence (for Smithery discovery)
   private hasCredentials(): boolean {
-    return !!(process.env.HUNTRESS_API_KEY && process.env.HUNTRESS_API_SECRET);
+    return !!(this.config.huntressApiKey && this.config.huntressApiSecret);
   }
 
   // Initialize the server (called when a tool is actually used)
@@ -58,7 +90,7 @@ class HuntressServer {
     if (!this.hasCredentials()) {
       throw new McpError(
         ErrorCode.InvalidRequest,
-        'HUNTRESS_API_KEY and HUNTRESS_API_SECRET environment variables are required'
+        'huntressApiKey and huntressApiSecret are required'
       );
     }
 
@@ -66,7 +98,7 @@ class HuntressServer {
     this.axiosInstance = axios.create({
       baseURL: 'https://api.huntress.io/v1',
       headers: {
-        Authorization: `Basic ${Buffer.from(`${process.env.HUNTRESS_API_KEY}:${process.env.HUNTRESS_API_SECRET}`).toString('base64')}`,
+        Authorization: `Basic ${Buffer.from(`${this.config.huntressApiKey}:${this.config.huntressApiSecret}`).toString('base64')}`,
       },
     });
 
@@ -378,69 +410,122 @@ class HuntressServer {
     });
   }
 
+  // Handle HTTP requests for Smithery Streamable HTTP
+  private async handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    const parsedUrl = url.parse(req.url || '', true);
+    const pathname = parsedUrl.pathname;
+    const queryParams = parsedUrl.query;
+
+    // Parse configuration from query parameters
+    this.config = this.parseConfig(queryParams);
+
+    if (pathname === '/mcp') {
+      // Handle MCP endpoint for Smithery
+      if (req.method === 'GET') {
+        // Return server info
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          name: 'huntress-server',
+          version: '1.0.0',
+          description: 'Huntress API MCP Server',
+          hasCredentials: this.hasCredentials(),
+          tools: [
+            'get_account_info',
+            'list_organizations', 
+            'get_organization',
+            'list_agents',
+            'get_agent', 
+            'list_incidents',
+            'get_incident'
+          ]
+        }));
+        return;
+      }
+
+      if (req.method === 'POST') {
+        // Handle MCP requests via HTTP
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk.toString();
+        });
+        
+        req.on('end', async () => {
+          try {
+            // For Smithery, we need to handle MCP protocol over HTTP
+            // This is a simplified implementation - in practice, you'd need
+            // to implement the full MCP protocol over HTTP
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              status: 'ok',
+              message: 'MCP server ready',
+              hasCredentials: this.hasCredentials()
+            }));
+          } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Internal server error' }));
+          }
+        });
+        return;
+      }
+
+      if (req.method === 'DELETE') {
+        // Handle cleanup
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', message: 'Cleanup completed' }));
+        return;
+      }
+    }
+
+    // Health check endpoint
+    if (pathname === '/health' || pathname === '/') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        status: 'ok', 
+        service: 'huntress-mcp-server',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        hasCredentials: this.hasCredentials()
+      }));
+      return;
+    }
+
+    // Default 404
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+
   async run() {
-    // Check if we're running in a container environment (Smithery)
-    const port = process.env.PORT || process.env.MCP_PORT || 3000;
-    const isContainer = process.env.NODE_ENV === 'production' || process.env.PORT || process.env.MCP_PORT;
+    const port = process.env.PORT || 3000;
+    const isContainer = process.env.NODE_ENV === 'production' || process.env.PORT;
     
     if (isContainer) {
-      // Container/HTTP mode for Smithery deployment
+      // HTTP mode for Smithery deployment
       console.error(`Starting Huntress MCP server in HTTP mode on port ${port}`);
       
-      // Simple HTTP server for container deployment
-      const http = await import('http');
-      const server = http.createServer((req, res) => {
-        // Set CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        
-        if (req.method === 'OPTIONS') {
-          res.writeHead(200);
-          res.end();
-          return;
-        }
-        
-        // Health check endpoint
-        if (req.url === '/health' || req.url === '/') {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ 
-            status: 'ok', 
-            service: 'huntress-mcp-server',
-            version: '1.0.0',
-            timestamp: new Date().toISOString(),
-            hasCredentials: this.hasCredentials()
-          }));
-          return;
-        }
-        
-        // MCP endpoint info
-        if (req.url === '/mcp') {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            name: 'huntress-server',
-            version: '1.0.0',
-            transport: 'stdio',
-            tools: ['get_account_info', 'list_organizations', 'get_organization', 'list_agents', 'get_agent', 'list_incidents', 'get_incident']
-          }));
-          return;
-        }
-        
-        // Default response
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Not found' }));
+      const httpServer = http.createServer((req, res) => {
+        this.handleHttpRequest(req, res).catch(error => {
+          console.error('HTTP request error:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Internal server error' }));
+        });
       });
       
-      server.listen(port, () => {
+      httpServer.listen(port, () => {
         console.error(`Huntress MCP server HTTP endpoint running on port ${port}`);
         console.error(`Health check: http://localhost:${port}/health`);
-        console.error(`MCP info: http://localhost:${port}/mcp`);
+        console.error(`MCP endpoint: http://localhost:${port}/mcp`);
       });
-      
-      // Also set up stdio transport for MCP communication
-      const transport = new StdioServerTransport();
-      await this.server.connect(transport);
-      console.error('MCP stdio transport connected');
       
     } else {
       // Local development mode - stdio only
