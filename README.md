@@ -103,20 +103,25 @@ The server implements Huntress API's rate limiting of 60 requests per minute on 
 
 ## Smithery Deployment
 
-This server is optimized for deployment on [Smithery](https://smithery.ai), featuring:
+This server is optimized for deployment on [Smithery](https://smithery.ai) using the **TypeScript runtime**, featuring:
 
-- **Container Configuration**: Uses `smithery.yaml` with container-based deployment
-- **Environment Variable Mapping**: Automatic mapping of configuration to environment variables
+- **TypeScript Runtime**: Uses Smithery's built-in TypeScript support
+- **HTTP Endpoint**: Implements `/mcp` endpoint for MCP communication
+- **Query Parameter Configuration**: Accepts configuration via URL parameters
 - **Deferred Initialization**: Credentials are only loaded when tools are actually invoked
-- **Session Management**: Compatible with Smithery's tool discovery process
-- **Health Check**: Built-in health endpoint for container orchestration
+- **Tool Discovery**: Tools can be listed without requiring authentication
 
 ### Smithery Configuration
-The `smithery.yaml` includes:
-- `configSchema`: Defines required API credentials
-- `configToEnv`: Maps configuration parameters to environment variables
-- `startCommand`: Container-based execution
-- `dockerfilePath`: Points to optimized Dockerfile
+The `smithery.yaml` uses:
+- `runtime: "typescript"` for TypeScript deployment
+- **HTTP endpoint**: `/mcp` with GET, POST, DELETE support
+- **Query parameter parsing**: Handles `huntressApiKey` and `huntressApiSecret`
+- **Lazy loading**: Tools discoverable without authentication
+
+### Deployment Steps
+1. **Push to GitHub**: Ensure your code is in a GitHub repository
+2. **Connect to Smithery**: Visit https://smithery.ai and connect your GitHub
+3. **Deploy**: Use Smithery's TypeScript deployment for automatic building
 
 ## Latest MCP Features (v1.15.1)
 
@@ -129,9 +134,22 @@ This server leverages the latest MCP SDK features including:
 - **Async Callback Support**: For session initialization and cleanup
 - **Custom Headers**: Support for custom authentication headers
 - **Streamable HTTP Transport**: Support for HTTP/SSE transport modes
-- **Container Health Checks**: Built-in health monitoring
+- **HTTP Endpoint**: `/mcp` endpoint with proper REST methods
 
-## Docker Support
+## HTTP Endpoint Details
+
+When running in HTTP mode (Smithery deployment), the server exposes:
+
+- **MCP Endpoint**: `http://localhost:3000/mcp`
+  - **GET**: Returns server capabilities for tool discovery
+  - **POST**: Handles MCP tool calls
+  - **DELETE**: Handles session cleanup
+- **Health Check**: `http://localhost:3000/health`
+- **Configuration**: Via query parameters (`?huntressApiKey=xxx&huntressApiSecret=yyy`)
+
+## Docker Support (Legacy)
+
+For custom container deployment:
 
 ### Build Docker Image
 ```bash

@@ -1,16 +1,18 @@
-FROM node:20-alpine
+FROM node:22-slim
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Install wget for health check
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN npm ci --only=production
+# Copy package files
+COPY package.json ./
+
+# Install dependencies (fallback to npm install if no lock file)
+RUN npm install --production
 
 # Copy source files
-COPY src ./src
-COPY tsconfig.json ./
+COPY . .
 
 # Build the application
 RUN npm run build
