@@ -454,7 +454,7 @@ class HuntressServer {
       }
 
       if (req.method === 'POST') {
-        // Handle MCP requests via HTTP
+        // Handle MCP JSON-RPC requests via HTTP
         let body = '';
         req.on('data', chunk => {
           body += chunk.toString();
@@ -462,18 +462,320 @@ class HuntressServer {
         
         req.on('end', async () => {
           try {
-            // For Smithery, we need to handle MCP protocol over HTTP
-            // This is a simplified implementation - in practice, you'd need
-            // to implement the full MCP protocol over HTTP
+            const request = JSON.parse(body);
+            
+            // Handle JSON-RPC requests
+            if (request.method === 'tools/list') {
+              const response = {
+                jsonrpc: '2.0',
+                id: request.id,
+                result: {
+                  tools: [
+                    {
+                      name: 'get_account_info',
+                      description: 'Get information about the current account',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {},
+                      },
+                    },
+                    {
+                      name: 'list_organizations',
+                      description: 'List organizations in the account',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {
+                          page: {
+                            type: 'integer',
+                            description: 'Page number (starts at 1)',
+                            minimum: 1,
+                          },
+                          limit: {
+                            type: 'integer',
+                            description: 'Number of results per page (1-500)',
+                            minimum: 1,
+                            maximum: 500,
+                          },
+                        },
+                      },
+                    },
+                    {
+                      name: 'get_organization',
+                      description: 'Get details of a specific organization',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {
+                          organization_id: {
+                            type: 'integer',
+                            description: 'Organization ID',
+                          },
+                        },
+                        required: ['organization_id'],
+                      },
+                    },
+                    {
+                      name: 'list_agents',
+                      description: 'List agents in the account',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {
+                          page: {
+                            type: 'integer',
+                            description: 'Page number (starts at 1)',
+                            minimum: 1,
+                          },
+                          limit: {
+                            type: 'integer',
+                            description: 'Number of results per page (1-500)',
+                            minimum: 1,
+                            maximum: 500,
+                          },
+                        },
+                      },
+                    },
+                    {
+                      name: 'get_agent',
+                      description: 'Get details of a specific agent',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {
+                          agent_id: {
+                            type: 'integer',
+                            description: 'Agent ID',
+                          },
+                        },
+                        required: ['agent_id'],
+                      },
+                    },
+                    {
+                      name: 'list_incidents',
+                      description: 'List incidents in the account',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {
+                          page: {
+                            type: 'integer',
+                            description: 'Page number (starts at 1)',
+                            minimum: 1,
+                          },
+                          limit: {
+                            type: 'integer',
+                            description: 'Number of results per page (1-500)',
+                            minimum: 1,
+                            maximum: 500,
+                          },
+                          status: {
+                            type: 'string',
+                            description: 'Filter by incident status',
+                            enum: ['active', 'resolved', 'ignored'],
+                          },
+                        },
+                      },
+                    },
+                    {
+                      name: 'get_incident',
+                      description: 'Get details of a specific incident',
+                      inputSchema: {
+                        type: 'object',
+                        properties: {
+                          incident_id: {
+                            type: 'integer',
+                            description: 'Incident ID',
+                          },
+                        },
+                        required: ['incident_id'],
+                      },
+                    },
+                  ],
+                }
+              };
+              
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(response));
+              return;
+            }
+            
+            // Handle tool calls
+            if (request.method === 'tools/call') {
+              // Initialize server when a tool is actually called
+              await this.initialize();
+              
+              const { name, arguments: args } = request.params;
+              let result;
+              
+              try {
+                switch (name) {
+                  case 'get_account_info': {
+                    const data = await this.makeRequest('/account');
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  case 'list_organizations': {
+                    const params = {
+                      page: args?.page || 1,
+                      limit: Math.min(args?.limit || 50, 500),
+                    };
+                    const data = await this.makeRequest('/organizations', params);
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  case 'get_organization': {
+                    const orgId = args?.organization_id;
+                    if (!orgId) {
+                      throw new Error('organization_id is required');
+                    }
+                    const data = await this.makeRequest(`/organizations/${orgId}`);
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  case 'list_agents': {
+                    const params = {
+                      page: args?.page || 1,
+                      limit: Math.min(args?.limit || 50, 500),
+                    };
+                    const data = await this.makeRequest('/agents', params);
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  case 'get_agent': {
+                    const agentId = args?.agent_id;
+                    if (!agentId) {
+                      throw new Error('agent_id is required');
+                    }
+                    const data = await this.makeRequest(`/agents/${agentId}`);
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  case 'list_incidents': {
+                    const params: RequestParams = {
+                      page: args?.page || 1,
+                      limit: Math.min(args?.limit || 50, 500),
+                    };
+                    const status = args?.status;
+                    if (status) {
+                      params.status = status;
+                    }
+                    const data = await this.makeRequest('/incidents', params);
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  case 'get_incident': {
+                    const incidentId = args?.incident_id;
+                    if (!incidentId) {
+                      throw new Error('incident_id is required');
+                    }
+                    const data = await this.makeRequest(`/incidents/${incidentId}`);
+                    result = {
+                      content: [
+                        {
+                          type: 'text',
+                          text: JSON.stringify(data, null, 2),
+                        },
+                      ],
+                    };
+                    break;
+                  }
+                  
+                  default:
+                    throw new Error(`Unknown tool: ${name}`);
+                }
+                
+                const response = {
+                  jsonrpc: '2.0',
+                  id: request.id,
+                  result
+                };
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(response));
+                
+              } catch (error: any) {
+                const errorResponse = {
+                  jsonrpc: '2.0',
+                  id: request.id,
+                  error: {
+                    code: -32603,
+                    message: error.message || 'Internal error'
+                  }
+                };
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(errorResponse));
+              }
+              return;
+            }
+            
+            // Unknown method
+            const errorResponse = {
+              jsonrpc: '2.0',
+              id: request.id,
+              error: {
+                code: -32601,
+                message: 'Method not found'
+              }
+            };
+            
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              status: 'ok',
-              message: 'MCP server ready',
-              hasCredentials: this.hasCredentials()
-            }));
+            res.end(JSON.stringify(errorResponse));
+            
           } catch (error) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Internal server error' }));
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              jsonrpc: '2.0',
+              id: null,
+              error: {
+                code: -32700,
+                message: 'Parse error'
+              }
+            }));
           }
         });
         return;
