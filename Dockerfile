@@ -6,10 +6,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
-COPY package.json ./
+COPY package.json package-lock.json ./
 
-# Install dependencies (fallback to npm install if no lock file)
-RUN npm install --production
+# Install dependencies
+RUN npm ci --only=production
 
 # Copy source files
 COPY . .
