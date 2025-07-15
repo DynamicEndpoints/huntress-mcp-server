@@ -1,26 +1,3 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
 
-runtime: "container"
-build:
-  dockerfile: "Dockerfile"
-  dockerBuildPath: "."
-startCommand:
-  type: "container"
-  configSchema:
-    type: object
-    required:
-      - huntressApiKey
-      - huntressApiSecret
-    properties:
-      huntressApiKey:
-        type: string
-        description: The API key for the Huntress MCP server.
-      huntressApiSecret:
-        type: string
-        description: The API secret for the Huntress MCP server.
-  configToEnv:
-    huntressApiKey: HUNTRESS_API_KEY
-    huntressApiSecret: HUNTRESS_API_SECRET
-  exampleConfig:
-    huntressApiKey: "your_api_key_here"
-    huntressApiSecret: "your_api_secret_here"
+runtime: "typescript"

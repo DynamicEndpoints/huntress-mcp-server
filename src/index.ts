@@ -410,22 +410,42 @@ class HuntressServer {
     });
   }
 
+  // Parse configuration from query parameters (Smithery HTTP format)
+  private parseQueryConfig(url: string): Config {
+    const config: Config = {};
+    const urlObj = new URL(url, `http://localhost:${process.env.PORT || 3000}`);
+    
+    // Handle dot-notation parameters from Smithery
+    const huntressApiKey = urlObj.searchParams.get('huntressApiKey');
+    const huntressApiSecret = urlObj.searchParams.get('huntressApiSecret');
+    
+    if (huntressApiKey) config.huntressApiKey = huntressApiKey;
+    if (huntressApiSecret) config.huntressApiSecret = huntressApiSecret;
+    
+    // Fallback to environment variables
+    if (!config.huntressApiKey) {
+      config.huntressApiKey = process.env.HUNTRESS_API_KEY;
+    }
+    if (!config.huntressApiSecret) {
+      config.huntressApiSecret = process.env.HUNTRESS_API_SECRET;
+    }
+    
+    return config;
+  }
+
   async run() {
-    // Parse config from environment for Smithery compatibility
-    this.config = this.parseConfig({});
-    
     const port = process.env.PORT || 3000;
-    const isContainer = process.env.NODE_ENV === 'production' || process.env.PORT;
+    const isHttpMode = process.env.NODE_ENV === 'production' || process.env.PORT;
     
-    if (isContainer) {
-      // HTTP server for container deployment with SSE support
+    if (isHttpMode) {
+      // HTTP server for Smithery TypeScript deployment
       console.error(`Starting Huntress MCP server in HTTP mode on port ${port}`);
       
       // Create HTTP server
       const httpServer = http.createServer((req, res) => {
-        // Set CORS headers
+        // Set CORS headers for all responses
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
         
         if (req.method === 'OPTIONS') {
@@ -447,38 +467,43 @@ class HuntressServer {
           return;
         }
         
-        // MCP endpoint - Smithery expects POST to root for tool discovery
-        if (req.url === '/') {
+        // MCP endpoint - Smithery expects /mcp
+        if (req.url?.startsWith('/mcp')) {
+          // Parse configuration from query parameters
+          this.config = this.parseQueryConfig(req.url);
+          
+          if (req.method === 'GET') {
+            // Handle GET requests for tool discovery
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              name: 'huntress-server',
+              version: '1.0.0',
+              capabilities: {
+                tools: {}
+              }
+            }));
+            return;
+          }
+          
           if (req.method === 'POST') {
-            // Create SSE transport for this specific response
-            const transport = new SSEServerTransport('/', res);
+            // Create SSE transport for MCP communication
+            const transport = new SSEServerTransport('/mcp', res);
             this.server.connect(transport).catch(error => {
               console.error('SSE transport error:', error);
               res.end();
             });
-          } else {
-            res.writeHead(405, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Method not allowed' }));
+            return;
           }
-          return;
-        }
-        
-        // SSE endpoint for streaming
-        if (req.url === '/sse') {
-          // Set SSE headers
-          res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-          });
           
-          // Create SSE transport for this specific response
-          const transport = new SSEServerTransport('/sse', res);
-          this.server.connect(transport).catch(error => {
-            console.error('SSE transport error:', error);
-            res.end();
-          });
+          if (req.method === 'DELETE') {
+            // Handle session cleanup
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'closed' }));
+            return;
+          }
+          
+          res.writeHead(405, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Method not allowed' }));
           return;
         }
         
@@ -489,8 +514,7 @@ class HuntressServer {
       
       httpServer.listen(port, () => {
         console.error(`Huntress MCP server running on HTTP port ${port}`);
-        console.error(`MCP endpoint: http://localhost:${port}/`);
-        console.error(`SSE endpoint: http://localhost:${port}/sse`);
+        console.error(`MCP endpoint: http://localhost:${port}/mcp`);
         console.error(`Health check: http://localhost:${port}/health`);
       });
       
