@@ -10,13 +10,12 @@ A Model Context Protocol (MCP) server that provides tools for interacting with t
 - **Latest MCP SDK 1.15.1**: Built with the latest Model Context Protocol features
 - **Deferred Initialization**: Optimized for Smithery deployment with lazy loading
 - **Container Support**: Ready for containerized deployment via Smithery
-- Account information retrieval
-- Organization management
-- Agent management and monitoring
-- Incident management with status filtering
-- Built-in rate limiting (60 requests per minute)
-- Comprehensive error handling and response formatting
-- Session management compatible with Smithery discovery
+- **HTTP/SSE Transport**: Supports both stdio and HTTP/SSE modes
+- **CORS Enabled**: Full CORS support for browser-based MCP clients
+- **Health Check**: Built-in health check endpoint for container orchestration
+- **Rate Limiting**: Built-in rate limiting (60 requests per minute)
+- **Comprehensive Error Handling**: Detailed error messages and validation
+- **Session Management**: Compatible with Smithery's tool discovery process
 
 ## Installation
 
@@ -72,6 +71,7 @@ These can be obtained from your Huntress account at `<your_account_subdomain>.hu
 
 ## Usage with MCP
 
+### Local Development (stdio mode)
 Add the following configuration to your MCP settings:
 
 ```json
@@ -89,6 +89,12 @@ Add the following configuration to your MCP settings:
 }
 ```
 
+### Container/HTTP Mode
+When running in container mode, the server exposes:
+- **HTTP Endpoint**: `http://localhost:3000/` (POST for MCP requests)
+- **SSE Endpoint**: `http://localhost:3000/sse` (Server-Sent Events)
+- **Health Check**: `http://localhost:3000/health` (GET for health status)
+
 ## Rate Limiting
 
 The server implements Huntress API's rate limiting of 60 requests per minute on a sliding window. This means:
@@ -103,11 +109,14 @@ This server is optimized for deployment on [Smithery](https://smithery.ai), feat
 - **Environment Variable Mapping**: Automatic mapping of configuration to environment variables
 - **Deferred Initialization**: Credentials are only loaded when tools are actually invoked
 - **Session Management**: Compatible with Smithery's tool discovery process
+- **Health Check**: Built-in health endpoint for container orchestration
 
-The `smithery.yaml` configuration includes:
+### Smithery Configuration
+The `smithery.yaml` includes:
 - `configSchema`: Defines required API credentials
 - `configToEnv`: Maps configuration parameters to environment variables
 - `startCommand`: Container-based execution
+- `dockerfilePath`: Points to optimized Dockerfile
 
 ## Latest MCP Features (v1.15.1)
 
@@ -119,6 +128,23 @@ This server leverages the latest MCP SDK features including:
 - **OAuth Improvements**: Enhanced authentication methods
 - **Async Callback Support**: For session initialization and cleanup
 - **Custom Headers**: Support for custom authentication headers
+- **Streamable HTTP Transport**: Support for HTTP/SSE transport modes
+- **Container Health Checks**: Built-in health monitoring
+
+## Docker Support
+
+### Build Docker Image
+```bash
+docker build -t huntress-mcp-server .
+```
+
+### Run Docker Container
+```bash
+docker run -p 3000:3000 \
+  -e HUNTRESS_API_KEY=your_api_key_here \
+  -e HUNTRESS_API_SECRET=your_api_secret_here \
+  huntress-mcp-server
+```
 
 ## Error Handling
 
@@ -129,6 +155,24 @@ The server handles various error scenarios:
 - API response errors
 - Session management errors
 - Tool discovery failures
+- Container health issues
+
+## Development
+
+### Local Development
+```bash
+npm run dev
+```
+
+### Build
+```bash
+npm run build
+```
+
+### Clean
+```bash
+npm run clean
+```
 
 ## License
 
