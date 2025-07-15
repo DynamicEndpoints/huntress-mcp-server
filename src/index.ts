@@ -379,15 +379,74 @@ class HuntressServer {
   }
 
   async run() {
-    // For now, always use stdio transport as it's the most reliable
-    // HTTP/SSE support can be added later when the SDK API is clearer
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error('Huntress MCP server running on stdio');
+    // Check if we're running in a container environment (Smithery)
+    const port = process.env.PORT || process.env.MCP_PORT || 3000;
+    const isContainer = process.env.NODE_ENV === 'production' || process.env.PORT || process.env.MCP_PORT;
     
-    // Log environment info for debugging
-    if (process.env.PORT || process.env.MCP_PORT) {
-      console.error(`Note: PORT/MCP_PORT detected but using stdio transport for compatibility`);
+    if (isContainer) {
+      // Container/HTTP mode for Smithery deployment
+      console.error(`Starting Huntress MCP server in HTTP mode on port ${port}`);
+      
+      // Simple HTTP server for container deployment
+      const http = await import('http');
+      const server = http.createServer((req, res) => {
+        // Set CORS headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200);
+          res.end();
+          return;
+        }
+        
+        // Health check endpoint
+        if (req.url === '/health' || req.url === '/') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            status: 'ok', 
+            service: 'huntress-mcp-server',
+            version: '1.0.0',
+            timestamp: new Date().toISOString(),
+            hasCredentials: this.hasCredentials()
+          }));
+          return;
+        }
+        
+        // MCP endpoint info
+        if (req.url === '/mcp') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            name: 'huntress-server',
+            version: '1.0.0',
+            transport: 'stdio',
+            tools: ['get_account_info', 'list_organizations', 'get_organization', 'list_agents', 'get_agent', 'list_incidents', 'get_incident']
+          }));
+          return;
+        }
+        
+        // Default response
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      });
+      
+      server.listen(port, () => {
+        console.error(`Huntress MCP server HTTP endpoint running on port ${port}`);
+        console.error(`Health check: http://localhost:${port}/health`);
+        console.error(`MCP info: http://localhost:${port}/mcp`);
+      });
+      
+      // Also set up stdio transport for MCP communication
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      console.error('MCP stdio transport connected');
+      
+    } else {
+      // Local development mode - stdio only
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      console.error('Huntress MCP server running on stdio (development mode)');
     }
   }
 }

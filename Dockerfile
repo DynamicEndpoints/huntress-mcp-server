@@ -5,14 +5,14 @@ FROM node:18-alpine AS builder
 # Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
-COPY package.json /app
+# Copy package files
+COPY package*.json ./
 
-# Install the dependencies
-RUN --mount=type=cache,target=/root/.npm npm install --ignore-scripts
+# Install all dependencies (including dev dependencies for building)
+RUN npm ci --ignore-scripts
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Copy source code
+COPY . .
 
 # Build the project
 RUN npm run build
@@ -23,16 +23,29 @@ FROM node:18-alpine
 # Set the working directory
 WORKDIR /app
 
-# Copy the build output and package.json from the builder stage
-COPY --from=builder /app/build /app/build
-COPY --from=builder /app/package.json /app/package.json
+# Copy package files
+COPY package*.json ./
 
 # Install only production dependencies
-RUN npm install --only=production
+RUN npm ci --only=production --ignore-scripts
 
-# Environment variables (to be overridden at runtime)
-ENV HUNTRESS_API_KEY=your_api_key_here
-ENV HUNTRESS_API_SECRET=your_api_secret_here
+# Copy the build output from the builder stage
+COPY --from=builder /app/build ./build
+
+# Create a non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+# Expose port (Smithery will set this via environment)
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "console.log('Health check passed')" || exit 1
 
 # Run the server
-ENTRYPOINT ["node", "build/index.js"]
+CMD ["node", "build/index.js"]

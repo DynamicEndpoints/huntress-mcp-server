@@ -12,10 +12,22 @@ startCommand:
       huntressApiKey:
         type: string
         description: The API key for the Huntress MCP server.
+        title: Huntress API Key
       huntressApiSecret:
         type: string
         description: The API secret for the Huntress MCP server.
+        title: Huntress API Secret
+    additionalProperties: false
   configToEnv:
     # Map configuration parameters to environment variables
     huntressApiKey: HUNTRESS_API_KEY
     huntressApiSecret: HUNTRESS_API_SECRET
+  containerConfig:
+    # Container-specific configuration
+    port: 3000
+    healthCheck:
+      path: /health
+      intervalSeconds: 30
+      timeoutSeconds: 5
+    environment:
+      NODE_ENV: production
