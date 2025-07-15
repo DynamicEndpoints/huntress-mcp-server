@@ -1,7 +1,11 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
 
-runtime: "typescript"
+runtime: "container"
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
 startCommand:
+  type: "container"
   configSchema:
     type: object
     required:
