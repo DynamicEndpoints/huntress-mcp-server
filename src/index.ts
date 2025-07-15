@@ -433,23 +433,133 @@ class HuntressServer {
     if (pathname === '/mcp') {
       // Handle MCP endpoint for Smithery
       if (req.method === 'GET') {
-        // Return server info
+        // Return JSON-RPC response for tool discovery (Smithery compatibility)
+        const response = {
+          jsonrpc: '2.0',
+          id: 1,
+          result: {
+            tools: [
+              {
+                name: 'get_account_info',
+                description: 'Get information about the current account',
+                inputSchema: {
+                  type: 'object',
+                  properties: {},
+                },
+              },
+              {
+                name: 'list_organizations',
+                description: 'List organizations in the account',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: {
+                      type: 'integer',
+                      description: 'Page number (starts at 1)',
+                      minimum: 1,
+                    },
+                    limit: {
+                      type: 'integer',
+                      description: 'Number of results per page (1-500)',
+                      minimum: 1,
+                      maximum: 500,
+                    },
+                  },
+                },
+              },
+              {
+                name: 'get_organization',
+                description: 'Get details of a specific organization',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    organization_id: {
+                      type: 'integer',
+                      description: 'Organization ID',
+                    },
+                  },
+                  required: ['organization_id'],
+                },
+              },
+              {
+                name: 'list_agents',
+                description: 'List agents in the account',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: {
+                      type: 'integer',
+                      description: 'Page number (starts at 1)',
+                      minimum: 1,
+                    },
+                    limit: {
+                      type: 'integer',
+                      description: 'Number of results per page (1-500)',
+                      minimum: 1,
+                      maximum: 500,
+                    },
+                  },
+                },
+              },
+              {
+                name: 'get_agent',
+                description: 'Get details of a specific agent',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    agent_id: {
+                      type: 'integer',
+                      description: 'Agent ID',
+                    },
+                  },
+                  required: ['agent_id'],
+                },
+              },
+              {
+                name: 'list_incidents',
+                description: 'List incidents in the account',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    page: {
+                      type: 'integer',
+                      description: 'Page number (starts at 1)',
+                      minimum: 1,
+                    },
+                    limit: {
+                      type: 'integer',
+                      description: 'Number of results per page (1-500)',
+                      minimum: 1,
+                      maximum: 500,
+                    },
+                    status: {
+                      type: 'string',
+                      description: 'Filter by incident status',
+                      enum: ['active', 'resolved', 'ignored'],
+                    },
+                  },
+                },
+              },
+              {
+                name: 'get_incident',
+                description: 'Get details of a specific incident',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    incident_id: {
+                      type: 'integer',
+                      description: 'Incident ID',
+                    },
+                  },
+                  required: ['incident_id'],
+                },
+              },
+            ],
+          }
+        };
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          name: 'huntress-server',
-          version: '1.0.0',
-          description: 'Huntress API MCP Server',
-          hasCredentials: this.hasCredentials(),
-          tools: [
-            'get_account_info',
-            'list_organizations', 
-            'get_organization',
-            'list_agents',
-            'get_agent', 
-            'list_incidents',
-            'get_incident'
-          ]
-        }));
+        res.end(JSON.stringify(response));
         return;
       }
 
