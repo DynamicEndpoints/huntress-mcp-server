@@ -65,7 +65,7 @@ class HuntressServer {
       }
     }
     
-    // Fallback to environment variables
+    // Fallback to environment variables (Smithery configToEnv mapping)
     if (!config.huntressApiKey) {
       config.huntressApiKey = process.env.HUNTRESS_API_KEY;
     }

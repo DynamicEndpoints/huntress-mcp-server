@@ -18,6 +18,9 @@ startCommand:
       huntressApiSecret:
         type: string
         description: The API secret for the Huntress MCP server.
+  configToEnv:
+    huntressApiKey: HUNTRESS_API_KEY
+    huntressApiSecret: HUNTRESS_API_SECRET
   exampleConfig:
     huntressApiKey: "your_api_key_here"
     huntressApiSecret: "your_api_secret_here"

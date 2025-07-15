@@ -3,16 +3,20 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --production=false
 
-# Copy application code
-COPY . .
+# Copy source code
+COPY src ./src
+COPY tsconfig.json ./
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies
+RUN npm prune --production
 
 # Expose port
 EXPOSE 3000
