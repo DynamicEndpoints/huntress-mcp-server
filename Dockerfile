@@ -8,14 +8,17 @@ RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev for build)
+RUN npm ci
 
 # Copy source files
 COPY . .
 
 # Build the application
 RUN npm run build
+
+# Install Smithery CLI and build for deployment
+RUN npx -y @smithery/cli@1.2.14 build -o .smithery/index.cjs
 
 # Expose port for MCP server
 EXPOSE 3000
@@ -29,4 +32,4 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Run the server
-CMD ["node", "build/index.js"]
+CMD ["node", ".smithery/index.cjs"]
