@@ -447,7 +447,23 @@ class HuntressServer {
           return;
         }
         
-        // SSE endpoint for MCP communication
+        // MCP endpoint for HTTP POST requests (Smithery expects this at root)
+        if (req.url === '/' || req.url === '/mcp') {
+          if (req.method === 'POST') {
+            // Create SSE transport for this specific response
+            const transport = new SSEServerTransport('/mcp', res);
+            this.server.connect(transport).catch(error => {
+              console.error('SSE transport error:', error);
+              res.end();
+            });
+          } else {
+            res.writeHead(405, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Method not allowed' }));
+          }
+          return;
+        }
+        
+        // SSE endpoint for streaming (optional)
         if (req.url === '/sse') {
           // Set SSE headers
           res.writeHead(200, {
