@@ -25,7 +25,8 @@ class HuntressServer {
   private axiosInstance: AxiosInstance | null = null;
   private lastRequestTime: number = 0;
   private requestCount: number = 0;
-  private isInitialized: boolean = false;
+  private isAuthenticated: boolean = false;
+  private authenticationPromise: Promise<void> | null = null;
   private config: Config = {};
 
   constructor() {
@@ -76,21 +77,39 @@ class HuntressServer {
     return config;
   }
 
-  // Quick check for credentials existence (for Smithery discovery)
-  private hasCredentials(): boolean {
+  // Non-throwing check for credentials (for discovery)
+  private hasValidCredentials(): boolean {
     return !!(this.config.huntressApiKey && this.config.huntressApiSecret);
   }
 
-  // Initialize the server (called when a tool is actually used)
-  private async initialize(): Promise<void> {
-    if (this.isInitialized) {
+  // Quick check for credentials existence (for health endpoint)
+  private hasCredentials(): boolean {
+    return this.hasValidCredentials();
+  }
+
+  // Ensure authentication is performed (lazy loading)
+  private async ensureAuthenticated(): Promise<void> {
+    if (this.isAuthenticated) {
       return;
     }
 
-    if (!this.hasCredentials()) {
+    if (this.authenticationPromise) {
+      return this.authenticationPromise;
+    }
+
+    this.authenticationPromise = this.performAuthentication();
+    return this.authenticationPromise;
+  }
+
+  // Perform the actual authentication
+  private async performAuthentication(): Promise<void> {
+    if (!this.hasValidCredentials()) {
       throw new McpError(
         ErrorCode.InvalidRequest,
-        'huntressApiKey and huntressApiSecret are required'
+        'Missing required environment variables for Huntress authentication:\n' +
+        '- HUNTRESS_API_KEY: Your Huntress API Key\n' +
+        '- HUNTRESS_API_SECRET: Your Huntress API Secret\n\n' +
+        'For setup instructions, visit: https://docs.huntress.com/api'
       );
     }
 
@@ -102,12 +121,21 @@ class HuntressServer {
       },
     });
 
-    this.isInitialized = true;
+    this.isAuthenticated = true;
+    this.authenticationPromise = null;
   }
 
   // Get tools list without any initialization (for lazy loading)
   private getToolsList() {
     return [
+      {
+        name: 'health_check',
+        description: 'Check server status and authentication configuration without requiring credentials',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
       {
         name: 'get_account_info',
         description: 'Get information about the current account',
@@ -271,12 +299,33 @@ class HuntressServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
-      // Initialize server when a tool is actually called
-      await this.initialize();
-
       try {
         switch (name) {
+          case 'health_check': {
+            // Health check tool works without authentication (for Smithery discovery)
+            const hasCredentials = this.hasValidCredentials();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Huntress MCP Server Health Check\n\n` +
+                        `Status: ${hasCredentials ? 'Ready' : 'Requires Configuration'}\n` +
+                        `Version: 1.0.0\n` +
+                        `Timestamp: ${new Date().toISOString()}\n\n` +
+                        `${hasCredentials ? 
+                          'Server is properly configured and ready to execute tools.' : 
+                          'Missing required environment variables for Huntress authentication:\n' +
+                          '- HUNTRESS_API_KEY: Your Huntress API Key\n' +
+                          '- HUNTRESS_API_SECRET: Your Huntress API Secret\n\n' +
+                          'For setup instructions, visit: https://docs.huntress.com/api'
+                        }`,
+                },
+              ],
+            };
+          }
           case 'get_account_info': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const data = await this.makeRequest('/account');
             return {
               content: [
@@ -289,6 +338,8 @@ class HuntressServer {
           }
 
           case 'list_organizations': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const params = {
               page: (args as any)?.page || 1,
               limit: Math.min((args as any)?.limit || 50, 500),
@@ -305,6 +356,8 @@ class HuntressServer {
           }
 
           case 'get_organization': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const orgId = (args as any)?.organization_id;
             if (!orgId) {
               throw new McpError(
@@ -324,6 +377,8 @@ class HuntressServer {
           }
 
           case 'list_agents': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const params = {
               page: (args as any)?.page || 1,
               limit: Math.min((args as any)?.limit || 50, 500),
@@ -340,6 +395,8 @@ class HuntressServer {
           }
 
           case 'get_agent': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const agentId = (args as any)?.agent_id;
             if (!agentId) {
               throw new McpError(
@@ -359,6 +416,8 @@ class HuntressServer {
           }
 
           case 'list_incidents': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const params: RequestParams = {
               page: (args as any)?.page || 1,
               limit: Math.min((args as any)?.limit || 50, 500),
@@ -379,6 +438,8 @@ class HuntressServer {
           }
 
           case 'get_incident': {
+            // Ensure authentication before making API calls (lazy loading)
+            await this.ensureAuthenticated();
             const incidentId = (args as any)?.incident_id;
             if (!incidentId) {
               throw new McpError(
