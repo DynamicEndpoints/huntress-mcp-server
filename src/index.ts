@@ -470,7 +470,7 @@ class HuntressServer {
         return;
       }
       
-      // MCP endpoint - Smithery expects POST to / for tool discovery and SSE
+      // MCP endpoint - Smithery expects /mcp endpoint
       if (req.url?.startsWith('/mcp') || req.url === '/') {
         // Parse configuration from query parameters
         this.config = this.parseQueryConfig(req.url || '/');
