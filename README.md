@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/dynamicendpoints-huntress-mcp-server-badge.png)](https://mseep.ai/app/dynamicendpoints-huntress-mcp-server)
+
 # Huntress API MCP Server
 [![smithery badge](https://smithery.ai/badge/huntress-mcp-server)](https://smithery.ai/server/huntress-mcp-server)
 
