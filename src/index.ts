@@ -105,6 +105,127 @@ class HuntressServer {
     this.isInitialized = true;
   }
 
+  // Get tools list without any initialization (for lazy loading)
+  private getToolsList() {
+    return [
+      {
+        name: 'get_account_info',
+        description: 'Get information about the current account',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'list_organizations',
+        description: 'List organizations in the account',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              description: 'Page number (starts at 1)',
+              minimum: 1,
+            },
+            limit: {
+              type: 'integer',
+              description: 'Number of results per page (1-500)',
+              minimum: 1,
+              maximum: 500,
+            },
+          },
+        },
+      },
+      {
+        name: 'get_organization',
+        description: 'Get details of a specific organization',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            organization_id: {
+              type: 'integer',
+              description: 'Organization ID',
+            },
+          },
+          required: ['organization_id'],
+        },
+      },
+      {
+        name: 'list_agents',
+        description: 'List agents in the account',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              description: 'Page number (starts at 1)',
+              minimum: 1,
+            },
+            limit: {
+              type: 'integer',
+              description: 'Number of results per page (1-500)',
+              minimum: 1,
+              maximum: 500,
+            },
+          },
+        },
+      },
+      {
+        name: 'get_agent',
+        description: 'Get details of a specific agent',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            agent_id: {
+              type: 'integer',
+              description: 'Agent ID',
+            },
+          },
+          required: ['agent_id'],
+        },
+      },
+      {
+        name: 'list_incidents',
+        description: 'List incidents in the account',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            page: {
+              type: 'integer',
+              description: 'Page number (starts at 1)',
+              minimum: 1,
+            },
+            limit: {
+              type: 'integer',
+              description: 'Number of results per page (1-500)',
+              minimum: 1,
+              maximum: 500,
+            },
+            status: {
+              type: 'string',
+              description: 'Filter by incident status',
+              enum: ['active', 'resolved', 'ignored'],
+            },
+          },
+        },
+      },
+      {
+        name: 'get_incident',
+        description: 'Get details of a specific incident',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            incident_id: {
+              type: 'integer',
+              description: 'Incident ID',
+            },
+          },
+          required: ['incident_id'],
+        },
+      },
+    ];
+  }
+
   private async checkRateLimit() {
     const now = Date.now();
     if (now - this.lastRequestTime >= 60000) {
@@ -144,130 +265,7 @@ class HuntressServer {
 
   private setupToolHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
-        {
-          name: 'get_account_info',
-          title: 'Get Account Information',
-          description: 'Get information about the current account',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'list_organizations',
-          title: 'List Organizations',
-          description: 'List organizations in the account',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              page: {
-                type: 'integer',
-                description: 'Page number (starts at 1)',
-                minimum: 1,
-              },
-              limit: {
-                type: 'integer',
-                description: 'Number of results per page (1-500)',
-                minimum: 1,
-                maximum: 500,
-              },
-            },
-          },
-        },
-        {
-          name: 'get_organization',
-          title: 'Get Organization Details',
-          description: 'Get details of a specific organization',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              organization_id: {
-                type: 'integer',
-                description: 'Organization ID',
-              },
-            },
-            required: ['organization_id'],
-          },
-        },
-        {
-          name: 'list_agents',
-          title: 'List Agents',
-          description: 'List agents in the account',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              page: {
-                type: 'integer',
-                description: 'Page number (starts at 1)',
-                minimum: 1,
-              },
-              limit: {
-                type: 'integer',
-                description: 'Number of results per page (1-500)',
-                minimum: 1,
-                maximum: 500,
-              },
-            },
-          },
-        },
-        {
-          name: 'get_agent',
-          title: 'Get Agent Details',
-          description: 'Get details of a specific agent',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              agent_id: {
-                type: 'integer',
-                description: 'Agent ID',
-              },
-            },
-            required: ['agent_id'],
-          },
-        },
-        {
-          name: 'list_incidents',
-          title: 'List Incidents',
-          description: 'List incidents in the account',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              page: {
-                type: 'integer',
-                description: 'Page number (starts at 1)',
-                minimum: 1,
-              },
-              limit: {
-                type: 'integer',
-                description: 'Number of results per page (1-500)',
-                minimum: 1,
-                maximum: 500,
-              },
-              status: {
-                type: 'string',
-                description: 'Filter by incident status',
-                enum: ['active', 'resolved', 'ignored'],
-              },
-            },
-          },
-        },
-        {
-          name: 'get_incident',
-          title: 'Get Incident Details',
-          description: 'Get details of a specific incident',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              incident_id: {
-                type: 'integer',
-                description: 'Incident ID',
-              },
-            },
-            required: ['incident_id'],
-          },
-        },
-      ],
+      tools: this.getToolsList(),
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -499,123 +497,7 @@ class HuntressServer {
                     jsonrpc: '2.0',
                     id: request.id,
                     result: {
-                      tools: [
-                        {
-                          name: 'get_account_info',
-                          description: 'Get information about the current account',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {},
-                          },
-                        },
-                        {
-                          name: 'list_organizations',
-                          description: 'List organizations in the account',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {
-                              page: {
-                                type: 'integer',
-                                description: 'Page number (starts at 1)',
-                                minimum: 1,
-                              },
-                              limit: {
-                                type: 'integer',
-                                description: 'Number of results per page (1-500)',
-                                minimum: 1,
-                                maximum: 500,
-                              },
-                            },
-                          },
-                        },
-                        {
-                          name: 'get_organization',
-                          description: 'Get details of a specific organization',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {
-                              organization_id: {
-                                type: 'integer',
-                                description: 'Organization ID',
-                              },
-                            },
-                            required: ['organization_id'],
-                          },
-                        },
-                        {
-                          name: 'list_agents',
-                          description: 'List agents in the account',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {
-                              page: {
-                                type: 'integer',
-                                description: 'Page number (starts at 1)',
-                                minimum: 1,
-                              },
-                              limit: {
-                                type: 'integer',
-                                description: 'Number of results per page (1-500)',
-                                minimum: 1,
-                                maximum: 500,
-                              },
-                            },
-                          },
-                        },
-                        {
-                          name: 'get_agent',
-                          description: 'Get details of a specific agent',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {
-                              agent_id: {
-                                type: 'integer',
-                                description: 'Agent ID',
-                              },
-                            },
-                            required: ['agent_id'],
-                          },
-                        },
-                        {
-                          name: 'list_incidents',
-                          description: 'List incidents in the account',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {
-                              page: {
-                                type: 'integer',
-                                description: 'Page number (starts at 1)',
-                                minimum: 1,
-                              },
-                              limit: {
-                                type: 'integer',
-                                description: 'Number of results per page (1-500)',
-                                minimum: 1,
-                                maximum: 500,
-                              },
-                              status: {
-                                type: 'string',
-                                description: 'Filter by incident status',
-                                enum: ['active', 'resolved', 'ignored'],
-                              },
-                            },
-                          },
-                        },
-                        {
-                          name: 'get_incident',
-                          description: 'Get details of a specific incident',
-                          inputSchema: {
-                            type: 'object',
-                            properties: {
-                              incident_id: {
-                                type: 'integer',
-                                description: 'Incident ID',
-                              },
-                            },
-                            required: ['incident_id'],
-                          },
-                        },
-                      ]
+                      tools: this.getToolsList()
                     }
                   }));
                   return;
