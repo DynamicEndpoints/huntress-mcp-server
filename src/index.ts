@@ -470,71 +470,27 @@ class HuntressServer {
         return;
       }
       
-      // MCP endpoint - Smithery expects /mcp endpoint
-      if (req.url?.startsWith('/mcp') || req.url === '/') {
+      // MCP endpoint - Smithery requires /mcp endpoint specifically
+      if (req.url?.startsWith('/mcp')) {
         // Parse configuration from query parameters
-        this.config = this.parseQueryConfig(req.url || '/');
+        this.config = this.parseQueryConfig(req.url);
+        
+        if (req.method === 'GET') {
+          // Handle GET for simple tool discovery
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            tools: this.getToolsList()
+          }));
+          return;
+        }
         
         if (req.method === 'POST') {
-          // Handle POST requests - check if it's a simple tool discovery or SSE connection
-          const contentType = req.headers['content-type'] || '';
-          
-          if (contentType.includes('application/json')) {
-            // Handle JSON POST requests for tool discovery
-            let body = '';
-            req.on('data', chunk => {
-              body += chunk.toString();
-            });
-            
-            req.on('end', () => {
-              try {
-                const request = JSON.parse(body);
-                
-                // Handle list_tools request for discovery (no auth required)
-                if (request.method === 'tools/list') {
-                  res.writeHead(200, { 'Content-Type': 'application/json' });
-                  res.end(JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: request.id,
-                    result: {
-                      tools: this.getToolsList()
-                    }
-                  }));
-                  return;
-                }
-                
-                // For other JSON-RPC requests, return method not found
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                  jsonrpc: '2.0',
-                  id: request.id,
-                  error: {
-                    code: -32601,
-                    message: 'Method not found'
-                  }
-                }));
-                
-              } catch (error) {
-                console.error('Error parsing JSON request:', error);
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ 
-                  jsonrpc: '2.0',
-                  id: null,
-                  error: {
-                    code: -32700,
-                    message: 'Parse error'
-                  }
-                }));
-              }
-            });
-          } else {
-            // Handle SSE connection for actual MCP communication
-            const transport = new SSEServerTransport(req.url || '/', res);
-            this.server.connect(transport).catch(error => {
-              console.error('SSE transport error:', error);
-              res.end();
-            });
-          }
+          // For Smithery, POST to /mcp should establish SSE connection
+          const transport = new SSEServerTransport('/mcp', res);
+          this.server.connect(transport).catch(error => {
+            console.error('SSE transport error:', error);
+            res.end();
+          });
           return;
         }
         
