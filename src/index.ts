@@ -473,153 +473,186 @@ class HuntressServer {
       }
       
       // MCP endpoint - Smithery expects POST to / for tool discovery and SSE
-      if (req.url === '/' || req.url === '/mcp') {
+      if (req.url?.startsWith('/mcp') || req.url === '/') {
         // Parse configuration from query parameters
         this.config = this.parseQueryConfig(req.url || '/');
         
-        if (req.method === 'GET') {
-          // Handle GET requests for tool discovery (no auth required)
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            result: {
-              tools: [
-                {
-                  name: 'get_account_info',
-                  title: 'Get Account Information',
-                  description: 'Get information about the current account',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {},
-                  },
-                },
-                {
-                  name: 'list_organizations',
-                  title: 'List Organizations',
-                  description: 'List organizations in the account',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {
-                      page: {
-                        type: 'integer',
-                        description: 'Page number (starts at 1)',
-                        minimum: 1,
-                      },
-                      limit: {
-                        type: 'integer',
-                        description: 'Number of results per page (1-500)',
-                        minimum: 1,
-                        maximum: 500,
-                      },
-                    },
-                  },
-                },
-                {
-                  name: 'get_organization',
-                  title: 'Get Organization Details',
-                  description: 'Get details of a specific organization',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {
-                      organization_id: {
-                        type: 'integer',
-                        description: 'Organization ID',
-                      },
-                    },
-                    required: ['organization_id'],
-                  },
-                },
-                {
-                  name: 'list_agents',
-                  title: 'List Agents',
-                  description: 'List agents in the account',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {
-                      page: {
-                        type: 'integer',
-                        description: 'Page number (starts at 1)',
-                        minimum: 1,
-                      },
-                      limit: {
-                        type: 'integer',
-                        description: 'Number of results per page (1-500)',
-                        minimum: 1,
-                        maximum: 500,
-                      },
-                    },
-                  },
-                },
-                {
-                  name: 'get_agent',
-                  title: 'Get Agent Details',
-                  description: 'Get details of a specific agent',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {
-                      agent_id: {
-                        type: 'integer',
-                        description: 'Agent ID',
-                      },
-                    },
-                    required: ['agent_id'],
-                  },
-                },
-                {
-                  name: 'list_incidents',
-                  title: 'List Incidents',
-                  description: 'List incidents in the account',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {
-                      page: {
-                        type: 'integer',
-                        description: 'Page number (starts at 1)',
-                        minimum: 1,
-                      },
-                      limit: {
-                        type: 'integer',
-                        description: 'Number of results per page (1-500)',
-                        minimum: 1,
-                        maximum: 500,
-                      },
-                      status: {
-                        type: 'string',
-                        description: 'Filter by incident status',
-                        enum: ['active', 'resolved', 'ignored'],
-                      },
-                    },
-                  },
-                },
-                {
-                  name: 'get_incident',
-                  title: 'Get Incident Details',
-                  description: 'Get details of a specific incident',
-                  inputSchema: {
-                    type: 'object',
-                    properties: {
-                      incident_id: {
-                        type: 'integer',
-                        description: 'Incident ID',
-                      },
-                    },
-                    required: ['incident_id'],
-                  },
-                },
-              ]
-            }
-          }));
-          return;
-        }
-        
         if (req.method === 'POST') {
-          // Create SSE transport for MCP communication
-          const transport = new SSEServerTransport('/', res);
-          this.server.connect(transport).catch(error => {
-            console.error('SSE transport error:', error);
-            res.end();
-          });
+          // Handle POST requests - check if it's a simple tool discovery or SSE connection
+          const contentType = req.headers['content-type'] || '';
+          
+          if (contentType.includes('application/json')) {
+            // Handle JSON POST requests for tool discovery
+            let body = '';
+            req.on('data', chunk => {
+              body += chunk.toString();
+            });
+            
+            req.on('end', () => {
+              try {
+                const request = JSON.parse(body);
+                
+                // Handle list_tools request for discovery (no auth required)
+                if (request.method === 'tools/list') {
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: request.id,
+                    result: {
+                      tools: [
+                        {
+                          name: 'get_account_info',
+                          description: 'Get information about the current account',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {},
+                          },
+                        },
+                        {
+                          name: 'list_organizations',
+                          description: 'List organizations in the account',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {
+                              page: {
+                                type: 'integer',
+                                description: 'Page number (starts at 1)',
+                                minimum: 1,
+                              },
+                              limit: {
+                                type: 'integer',
+                                description: 'Number of results per page (1-500)',
+                                minimum: 1,
+                                maximum: 500,
+                              },
+                            },
+                          },
+                        },
+                        {
+                          name: 'get_organization',
+                          description: 'Get details of a specific organization',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {
+                              organization_id: {
+                                type: 'integer',
+                                description: 'Organization ID',
+                              },
+                            },
+                            required: ['organization_id'],
+                          },
+                        },
+                        {
+                          name: 'list_agents',
+                          description: 'List agents in the account',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {
+                              page: {
+                                type: 'integer',
+                                description: 'Page number (starts at 1)',
+                                minimum: 1,
+                              },
+                              limit: {
+                                type: 'integer',
+                                description: 'Number of results per page (1-500)',
+                                minimum: 1,
+                                maximum: 500,
+                              },
+                            },
+                          },
+                        },
+                        {
+                          name: 'get_agent',
+                          description: 'Get details of a specific agent',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {
+                              agent_id: {
+                                type: 'integer',
+                                description: 'Agent ID',
+                              },
+                            },
+                            required: ['agent_id'],
+                          },
+                        },
+                        {
+                          name: 'list_incidents',
+                          description: 'List incidents in the account',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {
+                              page: {
+                                type: 'integer',
+                                description: 'Page number (starts at 1)',
+                                minimum: 1,
+                              },
+                              limit: {
+                                type: 'integer',
+                                description: 'Number of results per page (1-500)',
+                                minimum: 1,
+                                maximum: 500,
+                              },
+                              status: {
+                                type: 'string',
+                                description: 'Filter by incident status',
+                                enum: ['active', 'resolved', 'ignored'],
+                              },
+                            },
+                          },
+                        },
+                        {
+                          name: 'get_incident',
+                          description: 'Get details of a specific incident',
+                          inputSchema: {
+                            type: 'object',
+                            properties: {
+                              incident_id: {
+                                type: 'integer',
+                                description: 'Incident ID',
+                              },
+                            },
+                            required: ['incident_id'],
+                          },
+                        },
+                      ]
+                    }
+                  }));
+                  return;
+                }
+                
+                // For other JSON-RPC requests, return method not found
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: request.id,
+                  error: {
+                    code: -32601,
+                    message: 'Method not found'
+                  }
+                }));
+                
+              } catch (error) {
+                console.error('Error parsing JSON request:', error);
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ 
+                  jsonrpc: '2.0',
+                  id: null,
+                  error: {
+                    code: -32700,
+                    message: 'Parse error'
+                  }
+                }));
+              }
+            });
+          } else {
+            // Handle SSE connection for actual MCP communication
+            const transport = new SSEServerTransport(req.url || '/', res);
+            this.server.connect(transport).catch(error => {
+              console.error('SSE transport error:', error);
+              res.end();
+            });
+          }
           return;
         }
         
